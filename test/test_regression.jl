@@ -19,7 +19,9 @@ const ER_REFERENCE = Dict(
                Amax = 4.866452175757379, tmax = 2.9, S = 23.871993729905228, absumS = 79.98753845675598,
                MRinf = NaN, MR0 = -0.6118286425526492, MAmax = 2.428224863529894, Mtmax = 3.2))
 
-same(x, y) = (isnan(x) && isnan(y)) || isapprox(x, y; rtol = 1e-9, atol = 1e-14)
+# rtol for ordinary values; atol for values that are numerically zero (the S-map Jacobian has a
+# nearly undamped mode, and its Rinf of order 1e-14 differs between platforms)
+same(x, y) = (isnan(x) && isnan(y)) || isapprox(x, y; rtol = 1e-9, atol = 1e-12)
 
 @testset "jacobian_metrics agrees with EcologicalResilience's plain-matrix metrics" begin
     A = [-1.0 -0.3 0.1 -0.2; -0.2 -1.0 -0.4 0.0; 0.3 -0.1 -1.0 -0.25; -0.1 0.2 -0.3 -1.0]
