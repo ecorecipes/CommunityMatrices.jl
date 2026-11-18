@@ -1,0 +1,300 @@
+---
+title: "Plant communities: structural stability and sign patterns of empirical interaction matrices"
+author: "Simon Frost"
+engine: julia
+---
+
+## Overview
+
+Most resilience metrics need a model at an equilibrium: a Jacobian, which needs both the
+interaction coefficients and the growth rates. Empirical plant studies usually give only the
+first. This vignette asks what can still be said about stability from interaction matrices
+alone, using two published compilations:
+
+- **Kinlock (2019):** 25 complete plant interaction networks (3–8 species), measured as
+  relative interaction indices (RII) against monoculture controls;
+- **Adler et al. (2018):** 39 complete competition-coefficient matrices (2–6 species) from 19
+  field and greenhouse studies.
+
+Both datasets are CC0 and ship with the package (`data/kinlock2019`, `data/adler2018`).
+
+Two kinds of analysis need no growth rates:
+
+- **structural stability:** the share of growth-rate vectors for which all species can coexist
+  (the feasibility domain; Saavedra et al. 2017);
+- **sign patterns:** what the signs of the interactions alone imply for stability and for the
+  response to a sustained press (Allesina & Pascual 2008; Dambacher et al. 2003).
+
+```{julia}
+using CommunityMatrices
+using Random, Statistics, LinearAlgebra, Printf
+using DataFrames
+using Plots
+data = joinpath(pkgdir(CommunityMatrices), "data")
+kinlock = read_kinlock(joinpath(data, "kinlock2019", "Data_PlantInteractionNetworks.csv"))
+adler = read_adler(joinpath(data, "adler2018", "CompetitionRegressionData071517.csv"))
+(kinlock = length(kinlock), adler = length(adler), adler_studies = length(unique(x.study for x in adler)))
+```
+
+## From published numbers to typed matrices
+
+The two datasets record different quantities, and neither is a Lotka–Volterra coefficient
+matrix as published.
+
+- **Kinlock** gives RII = (P_with − P_without)/(P_with + P_without) for each pair: a relative
+  change in performance, bounded in [−1, 1], with a diagonal of 0 by construction.
+  `alpha_from_rii` reads the RIIs as per-capita effects relative to a self-regulation of −1.
+  This is an assumption, and the matrix records it.
+- **Adler** gives competition coefficients whose sign convention varies by study.
+  `read_adler` puts every study in the Lotka–Volterra convention (negative = competition),
+  divides each row by its intraspecific coefficient so the diagonal is −1, and skips groups
+  whose convention is free text or whose intraspecific coefficient is zero.
+
+Neither dataset has growth rates, so both readers set `r = 1` and say so in the metadata.
+
+```{julia}
+K = [alpha_from_rii(n) for n in kinlock]
+A = [x.alpha for x in adler]
+a = K[16]                     # Pfeifer-Meister et al. 2008, four grassland species
+println(kinlock[16].study, ": ", join(taxa(a), ", "))
+display(round.(matrix(a); digits = 2))
+println(matrix_metadata(a).derivation)
+```
+
+The typed matrix keeps what kind of object it is. An `AlphaMatrix` is not a Jacobian: turning
+it into one (`jacobian(a)`) needs the abundances at equilibrium, and they need `r`.
+
+| Quantity | Needs | Available here? |
+|---|---|---|
+| feasibility domain Ω, structural vector | `A` | yes |
+| quasi-sign-stability, press-response signs | signs of `A` | yes |
+| equilibrium `N* = −A⁻¹r`, `isfeasible` | `A`, `r` | no: depends on the placeholder `r` |
+| `feasibility_angle` | `A`, `r` | no |
+| Jacobian `diag(N*) A` and every metric on it (resilience, reactivity, amplification) | `A`, `r` | no |
+
+## Structural stability
+
+For a Lotka–Volterra community `dNᵢ/dt = Nᵢ(rᵢ + Σⱼ Aᵢⱼ Nⱼ)`, all species coexist at an
+equilibrium when `N* = −A⁻¹r` is positive. The set of `r` for which this holds is a cone, the
+feasibility domain. Its size Ω is the fraction of random directions of `r` that fall inside
+it. `feasibility_domain` estimates Ω by Monte Carlo and also returns Ω^(1/S), which is
+comparable across community sizes: for `A = −I`, Ω^(1/S) = 1/2 at any S.
+
+```{julia}
+offdiag(M) = [M[i, j] for i in axes(M, 1), j in axes(M, 2) if i != j]
+function summary_row(name, a)
+    o = offdiag(matrix(a))
+    fd = feasibility_domain(Xoshiro(2024), a; samples = 200_000)
+    return (dataset = name, S = nspecies(a), Ω = fd.Ω, Ωs = fd.Ω_scaled, mean_effect = mean(o),
+            competitive = mean(o .< 0))
+end
+tab = DataFrame(vcat([summary_row("Kinlock", a) for a in K], [summary_row("Adler", a) for a in A]))
+combine(groupby(tab, :dataset), nrow => :n, :Ωs => median => :Ωs_median, :Ωs => minimum => :Ωs_min,
+        :Ωs => maximum => :Ωs_max, :competitive => median => :competitive_share,
+        [:mean_effect, :Ωs] => ((x, y) -> cor(x, y)) => :cor_effect_Ωs,
+        [:S, :Ωs] => ((x, y) -> cor(x, y)) => :cor_S_Ωs)
+```
+
+- **Kinlock communities have larger feasibility domains than Adler's** (median Ω^(1/S) 0.47
+  against 0.27).
+- **The mean interaction explains most of the difference.** Half of the Kinlock effects are
+  facilitative, while Adler's are, by selection, almost all competitive. Facilitation widens
+  the feasibility cone and competition narrows it.
+- **Richness barely matters once Ω is scaled.**
+
+```{julia}
+#| label: fig-effect
+#| fig-cap: "Scaled feasibility domain against the mean off-diagonal effect. The dashed line is Ω^(1/S) = 1/2, the value for non-interacting species."
+p = plot(xlabel = "mean off-diagonal effect", ylabel = "Ω^(1/S)", legend = :topleft, size = (650, 420))
+for (nm, m) in (("Kinlock (RII)", :circle), ("Adler (normalised α)", :diamond))
+    d = tab[startswith.(nm, tab.dataset), :]
+    scatter!(p, d.mean_effect, d.Ωs; label = nm, marker = m, markersize = 2 .+ d.S, alpha = 0.7)
+end
+hline!(p, [0.5]; ls = :dash, color = :gray, label = "")
+p
+```
+
+## Against a null model
+
+Is an observed community more structurally stable than other arrangements of the same
+interactions? The null keeps the diagonal and shuffles the observed off-diagonal effects among
+the off-diagonal positions. Each Ω is estimated from the same set of random directions
+(`Xoshiro(2024)`), so that observed and shuffled matrices are compared on common random numbers.
+
+One case needs care. **For two species the shuffle can only transpose the off-diagonal pair,
+and transposing leaves Ω unchanged** (it mirrors the feasibility cone through the diagonal).
+The null is then uninformative, and any percentile is Monte Carlo noise around 1/2. This
+affects 25 of the 39 Adler matrices, so the comparison below uses communities of three or more
+species. For the first two-species matrix, the two estimates agree within their standard
+errors:
+
+```{julia}
+function shuffled(rng, a)
+    M = copy(matrix(a))
+    idx = [CartesianIndex(i, j) for i in axes(M, 1), j in axes(M, 2) if i != j]
+    M[idx] = M[shuffle(rng, idx)]
+    return AlphaMatrix(M, a.r)
+end
+pair = A[findfirst(a -> nspecies(a) == 2, A)]
+Ωbig(a) = feasibility_domain(Xoshiro(7), a; samples = 2_000_000)
+(observed = Ωbig(pair).Ω, transposed = Ωbig(AlphaMatrix(permutedims(matrix(pair)), pair.r)).Ω, se = Ωbig(pair).se)
+```
+
+```{julia}
+Ωcrn(a) = feasibility_domain(Xoshiro(2024), a; samples = 50_000).Ω_scaled
+function percentile(rng, a; shuffles = 200)
+    o = Ωcrn(a)
+    null = [Ωcrn(shuffled(rng, a)) for _ in 1:shuffles]
+    return mean(null .< o) + mean(null .== o) / 2
+end
+rng = Xoshiro(1)
+tab.percentile = [percentile(rng, a) for a in vcat(K, A)]
+big = tab[tab.S .>= 3, :]
+combine(groupby(big, :dataset), nrow => :n, :percentile => median => :median_percentile,
+        :percentile => (x -> count(>(0.5), x)) => :above_half)
+```
+
+```{julia}
+#| label: fig-null
+#| fig-cap: "Percentile of each community's Ω^(1/S) among 200 shuffles of its own off-diagonal effects (communities of three or more species). Above 0.5: more structurally stable than the shuffles."
+q = plot(xlabel = "community (sorted)", ylabel = "percentile among shuffles", ylim = (0, 1),
+         legend = :topleft, size = (650, 380))
+for (nm, m) in (("Kinlock", :circle), ("Adler", :diamond))
+    d = sort(big[big.dataset .== nm, :], :percentile)
+    scatter!(q, range(0, 1; length = nrow(d)), d.percentile; label = nm, marker = m)
+end
+hline!(q, [0.5]; ls = :dash, color = :gray, label = "")
+q
+```
+
+- **Observed plant communities are not more structurally stable than random arrangements of
+  their own interactions.** The median percentile is 0.48 for Kinlock and 0.42 for Adler, and
+  the communities are spread across almost the whole range.
+- **What is arranged matters less than what there is.** The mean effect, which the shuffle
+  keeps, sets Ω; the positions of the effects, which the shuffle changes, do not move it
+  systematically.
+
+## Sign patterns
+
+The signs of a matrix alone constrain stability. `SignedDigraph` keeps only the signs, and
+the qualitative analyses draw random magnitudes uniform on (0, 1) for every non-zero entry,
+the diagonal included:
+
+- `quasi_sign_stability`: the fraction of draws that are stable;
+- `press_sign_determinacy`: among stable draws, the most common sign of each species'
+  response to a sustained increase in each species' growth, and how often it occurs.
+
+```{julia}
+qrng = Xoshiro(3)
+tab.qss = [quasi_sign_stability(qrng, SignedDigraph(a)).fraction for a in vcat(K, A)]
+sort!(unstack(combine(groupby(tab, [:dataset, :S]), :qss => (x -> round(median(x); digits = 2)) => :qss_median),
+              :S, :dataset, :qss_median), :S)
+```
+
+- **A competing pair is stable in exactly half of the draws.** With self-regulation dᵢ and
+  competition cᵢⱼ all uniform on (0, 1), the pair is stable when d₁d₂ > c₁₂c₂₁, which by
+  symmetry has probability 1/2. The 25 two-species Adler matrices sit there.
+- **Larger communities are less often stable.** The median is 1/2 for Adler's pairs and
+  Kinlock's three-species networks, and below 0.2 for five or more species in both datasets:
+  each extra species adds feedback loops that a random draw can make destabilising.
+- **The exceptions are always stable.** A few patterns have quasi-sign-stability 1. Either an
+  interaction is missing and the effects run one way only (a zero coefficient in a pair), or
+  each pair has opposite signs, like predator and prey.
+
+For one community, the press analysis gives the response matrix and its determinacy:
+
+```{julia}
+s = SignedDigraph(a)
+pr = press_sign_determinacy(Xoshiro(4), s; samples = 20_000)
+println("stable draws: ", round(pr.stable; digits = 2))
+genus = first.(split.(taxa(a)))
+signs = DataFrame(pr.sign, Symbol.("press " .* genus))
+insertcols!(signs, 1, :response => genus)
+signs
+```
+
+```{julia}
+round.(pr.determinacy; digits = 2)
+```
+
+- **Fewer than half of the random magnitudes give a stable community** with this sign
+  pattern; the responses are computed over those.
+- **Some responses are well determined.** The responses of *Danthonia* and *Deschampsia*
+  have the same sign in more than 90% of the stable draws, whichever species is pressed.
+- **Others are not, even to a species' own press.** For *Festuca* and *Lolium* every response
+  has a determinacy of about 0.75, including the response to an increase in their own growth:
+  in a quarter of the stable draws, pressing one of them lowers its own abundance through
+  indirect effects. A determinacy near 1/2 would mean the signs say nothing.
+
+## What growth rates would add
+
+The resilience metrics of the other vignettes are properties of the Jacobian at an
+equilibrium, and for a Lotka–Volterra community that is `diag(N*) A`, with `N* = −A⁻¹r`.
+Without `r`, the matrix fixes the cone of possible equilibria but not where in it the community
+sits. To see how much that matters, draw unit growth-rate vectors uniformly from the
+feasibility domain of the example community and compute the resilience of each resulting
+equilibrium.
+
+```{julia}
+function resilience_over_r(rng, a; n = 2_000)
+    out = (resilience = Float64[], angle = Float64[])
+    while length(out.resilience) < n
+        r = normalize(randn(rng, nspecies(a)))
+        b = AlphaMatrix(matrix(a), r)
+        isfeasible(b) || continue
+        push!(out.resilience, resilience(jacobian(b)))
+        push!(out.angle, feasibility_angle(b))
+    end
+    return out
+end
+ro = resilience_over_r(Xoshiro(5), a)
+(stable = mean(ro.resilience .> 0), quantiles = round.(quantile(ro.resilience, [0.05, 0.5, 0.95]); digits = 3),
+ cor_angle = round(cor(ro.angle, ro.resilience); digits = 2))
+```
+
+```{julia}
+#| label: fig-r
+#| fig-cap: "Resilience (the slowest return rate, −max Re λ) of the example community at equilibria drawn uniformly from its feasibility domain, against the angle between r and the structural vector."
+scatter(ro.angle, ro.resilience; xlabel = "angle from the structural vector (degrees)",
+        ylabel = "resilience", markersize = 2, alpha = 0.4, label = "", size = (650, 380))
+```
+
+- **Every feasible equilibrium of this community is stable**, so resilience is defined
+  throughout its feasibility domain.
+- **The same interaction matrix gives very different resilience.** Across feasible growth
+  rates of unit length, the slowest return rate varies more than 30-fold between the 5th and
+  95th percentiles. (Resilience scales with the length of `r`, since `N*` does.)
+- **Communities near the edge of their feasibility domain are the least resilient.** As `r`
+  approaches a boundary of the cone, one species' equilibrium abundance goes to zero, and with
+  it the return rate along that direction.
+- **So resilience is a property of a community at an equilibrium, not of its interaction
+  matrix.** Structural stability and sign patterns are what a matrix without growth rates
+  can support.
+
+## Caveats
+
+- **RII is not a per-capita coefficient.** Reading Kinlock's RIIs as Lotka–Volterra effects
+  relative to self-regulation −1 is an assumption; scaling them (`alpha_from_rii(net;
+  scale)`) changes Ω.
+- **Adler's coefficients come from different response variables** (survival, growth,
+  biomass, population growth), and are comparable only within a study.
+- **The samples are small and selected.** Only complete matrices are used, which favours
+  small communities: 14 of the 25 Kinlock networks have three species and 25 of the 39 Adler
+  matrices have two.
+- **Monte Carlo error.** Ω uses 2×10⁵ directions (5×10⁴ in the null comparison); the
+  standard error is returned by `feasibility_domain`.
+
+## References
+
+- Adler, P. B. et al. (2018). Competition and coexistence in plant communities:
+  intraspecific competition is stronger than interspecific competition. *Ecology Letters*
+  21:1319–1329. Data: doi:10.5061/dryad.q5mg97b (CC0).
+- Allesina, S. & Pascual, M. (2008). Network structure, predator–prey modules, and stability
+  in large food webs. *Theoretical Ecology* 1:55–64.
+- Dambacher, J. M., Li, H. W. & Rossignol, P. A. (2003). Qualitative predictions in model
+  ecosystems. *Ecological Modelling* 161:79–93.
+- Kinlock, N. L. (2019). A meta-analysis of plant interaction networks reveals competitive
+  hierarchies as well as facilitation and intransitivity. *American Naturalist* 194:640–653.
+  Data: doi:10.5061/dryad.1sm06sp (CC0).
+- Saavedra, S. et al. (2017). A structural approach for understanding multispecies
+  coexistence. *Ecological Monographs* 87:470–486.
