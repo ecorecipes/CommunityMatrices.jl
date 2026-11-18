@@ -15,24 +15,27 @@ const ER_REFERENCE = Dict(
     "stein_ss" => (Rinf = 0.02362480949010252, R0 = 0.778255751277281, Is = 0.0027256391681037026,
                    Amax = 2.9106718760558734, tmax = 5.5, S = 371.53399883166554, absumS = 419.41915409490286,
                    MRinf = 0.06812179764816151, MR0 = -0.8051535632153662, MAmax = 1.0, Mtmax = 0.0),
-    "smap" => (Rinf = 3.2642925842401536e-14, R0 = 1.286882965681846, Is = 5.483593572106729e-15,
-               Amax = 4.866452175757379, tmax = 2.9, S = 23.871993729905228, absumS = 79.98753845675598,
-               MRinf = NaN, MR0 = -0.6118286425526492, MAmax = 2.428224863529894, Mtmax = 3.2))
+    "smap" => (Rinf = 0.5402557934773757, R0 = 0.09076048172638779, Is = 0.19326031025411328,
+               Amax = 1.0382299166529911, tmax = 0.7, S = 2.024737569484144, absumS = 8.2707315563835,
+               MRinf = 0.5114381852351159, MR0 = -1.0211440914300314, MAmax = 1.0, Mtmax = 0.0))
 
-# rtol for ordinary values; atol for values that are numerically zero (the S-map Jacobian has a
-# nearly undamped mode, and its Rinf of order 1e-14 differs between platforms)
 same(x, y) = (isnan(x) && isnan(y)) || isapprox(x, y; rtol = 1e-9, atol = 1e-12)
 
 @testset "jacobian_metrics agrees with EcologicalResilience's plain-matrix metrics" begin
     A = [-1.0 -0.3 0.1 -0.2; -0.2 -1.0 -0.4 0.0; 0.3 -0.1 -1.0 -0.25; -0.1 0.2 -0.3 -1.0]
     st = read_stein(joinpath(@__DIR__, "..", "data", "stein2013"))
     ss = steady_state(st.alpha, fill(1e-3, nspecies(st.alpha)))
-    X = [exp(-0.1t) * [1.0, 0.5, 0.25][i] + 0.01sin(t + i) for t in 0:40, i in 1:3]
+    # a damped linear system under deterministic forcing: a clearly stable S-map Jacobian
+    Φ = exp([-0.5 0.2 0.0; -0.3 -0.4 0.1; 0.0 0.25 -0.6])
+    X = ones(60, 3)
+    for t in 2:60
+        X[t, :] = 1 .+ Φ * (X[t - 1, :] .- 1) .+ 0.05 .* [sin(1.3t), cos(0.7t), sin(2.1t + 1)]
+    end
     cases = Dict("glv4" => jacobian(AlphaMatrix(A, [1.0, 0.8, 1.2, 0.9])),
                  "nonnormal" => Jacobian([-1.0 10.0; 0.0 -2.0], [1.0, 0.5]),
                  "oscillating" => Jacobian([0.1 1.0; -0.5 -0.3], [1.0, 2.0]),
                  "stein_ss" => jacobian(subcommunity(st.alpha, ss.survivors)),
-                 "smap" => smap_jacobians(X; theta = 1.0, times = [20])[1])
+                 "smap" => smap_jacobians(X; theta = 1.0, times = [30])[1])
     for (name, j) in cases
         m, ref = jacobian_metrics(j), ER_REFERENCE[name]
         @test keys(m) == keys(ref)
