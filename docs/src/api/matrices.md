@@ -33,3 +33,13 @@ invasion_rates
 steady_state
 glv_trajectory
 ```
+
+## Simulated perturbations
+
+A [`GLVCommunity`](@ref) implements ResilienceCore's community interface, so its mortality
+presses, tolerances and removals, and `stability_profile` (all 27 metrics of
+Domínguez-García et al. 2019), run on it. The baseline mortality must be supplied.
+
+```@docs
+GLVCommunity
+```

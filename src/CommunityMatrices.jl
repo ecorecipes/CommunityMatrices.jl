@@ -36,25 +36,27 @@ using ResilienceCore: ResilienceCore, ContinuousTime, EquilibriumJacobian, Conti
                       reactivity, amplification_envelope, propagator, max_amplification, pulse_covariance,
                       median_reactivity, median_displacement, median_max_amplification, median_resilience,
                       sensitivity_matrix, press_sensitivity, total_sensitivity, stochastic_invariability,
-                      applicable_metrics, linearise, jacobian_profile
+                      applicable_metrics, linearise, jacobian_profile, present_species, stability_profile
 import ResilienceCore: jacobian, SignPattern, quasi_sign_stability, press_sign_determinacy
 
 # re-exported from ResilienceCore
 export ContinuousJacobian, resilience, isstable, reactivity, amplification_envelope, max_amplification,
        pulse_covariance, median_reactivity, median_displacement, median_max_amplification, median_resilience,
        sensitivity_matrix, press_sensitivity, total_sensitivity, stochastic_invariability, applicable_metrics,
-       linearise, jacobian, jacobian_profile, SignPattern, quasi_sign_stability, press_sign_determinacy
+       linearise, jacobian, jacobian_profile, stability_profile, SignPattern, quasi_sign_stability, press_sign_determinacy
 # this package
 export MatrixMetadata, InteractionMatrix, matrix, matrix_metadata, taxa, nspecies, AlphaMatrix, glv_rhs!, equilibrium,
        isfeasible, Jacobian, CommunityMatrix, per_capita, FluxMatrix, SignedDigraph, ProbabilisticNetwork,
        subcommunity, invasion_rates, steady_state, glv_trajectory
 export feasibility_domain, structural_vector, feasibility_angle
 export smap_jacobians, invariability
+export GLVCommunity
 export read_kinlock, alpha_from_rii, read_adler, read_stein
 
 include("matrices.jl")
 include("structural.jl")
 include("timeseries.jl")
 include("readers.jl")
+include("community.jl")
 
 end
