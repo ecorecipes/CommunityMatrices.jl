@@ -19,7 +19,7 @@ Interaction matrices of ecological communities, and what can be said about stabi
   matrices and the Stein et al. (2013) gut-microbiota model, with the data.
 
 The resilience metrics themselves (`resilience`, `reactivity`, `max_amplification`, the median
-metrics, `stochastic_invariability`, the sensitivities) come from
+metrics, `stochastic_invariability`, the sensitivities, and `jacobian_profile` for all eleven at once) come from
 [ResilienceCore.jl](https://github.com/ecorecipes/ResilienceCore.jl) and are re-exported; they
 accept a [`Jacobian`](@ref) directly, through its `ContinuousJacobian`.
 """
@@ -36,18 +36,18 @@ using ResilienceCore: ResilienceCore, ContinuousTime, EquilibriumJacobian, Conti
                       reactivity, amplification_envelope, propagator, max_amplification, pulse_covariance,
                       median_reactivity, median_displacement, median_max_amplification, median_resilience,
                       sensitivity_matrix, press_sensitivity, total_sensitivity, stochastic_invariability,
-                      applicable_metrics, linearise
+                      applicable_metrics, linearise, jacobian_profile
 import ResilienceCore: jacobian, SignPattern, quasi_sign_stability, press_sign_determinacy
 
 # re-exported from ResilienceCore
 export ContinuousJacobian, resilience, isstable, reactivity, amplification_envelope, max_amplification,
        pulse_covariance, median_reactivity, median_displacement, median_max_amplification, median_resilience,
        sensitivity_matrix, press_sensitivity, total_sensitivity, stochastic_invariability, applicable_metrics,
-       linearise, jacobian, SignPattern, quasi_sign_stability, press_sign_determinacy
+       linearise, jacobian, jacobian_profile, SignPattern, quasi_sign_stability, press_sign_determinacy
 # this package
 export MatrixMetadata, InteractionMatrix, matrix, matrix_metadata, taxa, nspecies, AlphaMatrix, glv_rhs!, equilibrium,
        isfeasible, Jacobian, CommunityMatrix, per_capita, FluxMatrix, SignedDigraph, ProbabilisticNetwork,
-       jacobian_metrics, subcommunity, invasion_rates, steady_state, glv_trajectory
+       subcommunity, invasion_rates, steady_state, glv_trajectory
 export feasibility_domain, structural_vector, feasibility_angle
 export smap_jacobians, invariability
 export read_kinlock, alpha_from_rii, read_adler, read_stein

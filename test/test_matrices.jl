@@ -32,7 +32,7 @@
     @test matrix(per_capita(J)) ≈ A
     @test occursin("Lotka", matrix_metadata(J).derivation)
     @test resilience(J) > 0
-    @test keys(jacobian_metrics(J)) == (:Rinf, :R0, :Is, :Amax, :tmax, :S, :absumS, :MRinf, :MR0, :MAmax, :Mtmax)
+    @test keys(jacobian_profile(J)) == (:R0, :Is, :Amax, :tmax, :Rinf, :MR0, :MAmax, :Mtmax, :MRinf, :S, :mean_sij)
 
     # fluxes of a resource–consumer pair reproduce the Lotka–Volterra Jacobian
     r, s, at, e, m = 1.0, 0.5, 2.0, 0.6, 0.3

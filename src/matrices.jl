@@ -289,30 +289,11 @@ Base.rand(rng::AbstractRNG, p::ProbabilisticNetwork) = rand(rng, size(p.P)...) .
 # ResilienceCore's metrics on the typed Jacobian, through its ContinuousJacobian
 for f in (:resilience, :isstable, :reactivity, :amplification_envelope, :propagator, :max_amplification,
           :pulse_covariance, :median_reactivity, :median_displacement, :median_max_amplification, :median_resilience,
-          :sensitivity_matrix, :press_sensitivity, :total_sensitivity, :stochastic_invariability)
+          :sensitivity_matrix, :press_sensitivity, :total_sensitivity, :stochastic_invariability,
+          :jacobian_profile)
     @eval ResilienceCore.$f(j::Jacobian, args...; kwargs...) = ResilienceCore.$f(ContinuousJacobian(j), args...; kwargs...)
 end
 ResilienceCore.applicable_metrics(::Type{Jacobian}) = applicable_metrics(ContinuousJacobian)
-
-"""
-    jacobian_metrics(j::Jacobian)
-
-The Jacobian-based stability metrics used by Domínguez-García et al. (2019), computed by
-ResilienceCore in the raw sign convention of their dataset: `Rinf` (resilience), `R0`
-(reactivity), `Is` (stochastic invariability), `Amax` and `tmax` (maximal amplification and
-when it is reached; `(Inf, Inf)` for an unstable equilibrium), `S` (community press
-sensitivity) and `absumS`, and, when the equilibrium is known, `MRinf`, `MR0`, `MAmax`, `Mtmax`
-(the median metrics, with pulses proportional to the equilibrium).
-"""
-function jacobian_metrics(j::Jacobian)
-    op = ContinuousJacobian(j)
-    Amax, tmax = max_amplification(op)
-    base = (Rinf = resilience(op), R0 = reactivity(op), Is = stochastic_invariability(op), Amax = Amax, tmax = tmax,
-            S = press_sensitivity(op), absumS = total_sensitivity(op))
-    isempty(j.equilibrium) && return base
-    MAmax, Mtmax = median_max_amplification(op)
-    return merge(base, (MRinf = median_resilience(op), MR0 = median_reactivity(op), MAmax = MAmax, Mtmax = Mtmax))
-end
 
 """
     subcommunity(a::AlphaMatrix, idx)

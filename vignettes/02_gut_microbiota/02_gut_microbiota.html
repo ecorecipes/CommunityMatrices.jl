@@ -2271,7 +2271,7 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <ul>
 <li>the fitted <a href="@ref"><code>AlphaMatrix</code></a> and why its full equilibrium is not feasible;</li>
 <li>assembling the community the model predicts (<code>steady_state</code>, <code>subcommunity</code>, <code>invasion_rates</code>);</li>
-<li>the stability metrics of that community (<code>jacobian_metrics</code>);</li>
+<li>the stability metrics of that community (<code>jacobian_profile</code>);</li>
 <li>the clindamycin pulse, simulated with <code>glv_trajectory</code> and compared with the mice;</li>
 <li>what can be estimated from the time series alone (<code>smap_jacobians</code>, <code>invariability</code>).</li>
 </ul>
@@ -2542,7 +2542,7 @@ var requirejs,require,define;(function(global,setTimeout){var req,s,head,baseEle
 <div id="22" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>sub <span class="op">=</span> <span class="fu">subcommunity</span>(a, ss.survivors)</span>
 <span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>J <span class="op">=</span> <span class="fu">jacobian</span>(sub)</span>
-<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fu">jacobian_metrics</span>(J)</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fu">jacobian_profile</span>(J)</span>
 <span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>(Rinf <span class="op">=</span> m.Rinf, return_time <span class="op">=</span> <span class="fl">1</span> <span class="op">/</span> m.Rinf, R0 <span class="op">=</span> m.R0, Amax <span class="op">=</span> m.Amax, tmax <span class="op">=</span> m.tmax,</span>
 <span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a> MRinf <span class="op">=</span> m.MRinf, MR0 <span class="op">=</span> m.MR0, MAmax <span class="op">=</span> m.MAmax)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-display" data-execution_count="1">

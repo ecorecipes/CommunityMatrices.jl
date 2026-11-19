@@ -23,7 +23,6 @@ jacobian(::AlphaMatrix)
 jacobian(::FluxMatrix)
 SignedDigraph
 ProbabilisticNetwork
-jacobian_metrics
 ```
 
 ## Assembly and trajectories

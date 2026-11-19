@@ -1,4 +1,4 @@
-# `jacobian_metrics` now computes every metric with ResilienceCore. These are the values the
+# `jacobian_profile` (ResilienceCore) computes every metric. These are the values the
 # plain-matrix functions of EcologicalResilience.jl (commit e84f286), from which this package
 # was split, gave on the same Jacobians: the two implementations agree.
 const ER_REFERENCE = Dict(
@@ -21,7 +21,7 @@ const ER_REFERENCE = Dict(
 
 same(x, y) = (isnan(x) && isnan(y)) || isapprox(x, y; rtol = 1e-9, atol = 1e-12)
 
-@testset "jacobian_metrics agrees with EcologicalResilience's plain-matrix metrics" begin
+@testset "jacobian_profile agrees with EcologicalResilience's plain-matrix metrics" begin
     A = [-1.0 -0.3 0.1 -0.2; -0.2 -1.0 -0.4 0.0; 0.3 -0.1 -1.0 -0.25; -0.1 0.2 -0.3 -1.0]
     st = read_stein(joinpath(@__DIR__, "..", "data", "stein2013"))
     ss = steady_state(st.alpha, fill(1e-3, nspecies(st.alpha)))
@@ -37,14 +37,15 @@ same(x, y) = (isnan(x) && isnan(y)) || isapprox(x, y; rtol = 1e-9, atol = 1e-12)
                  "stein_ss" => jacobian(subcommunity(st.alpha, ss.survivors)),
                  "smap" => smap_jacobians(X; theta = 1.0, times = [30])[1])
     for (name, j) in cases
-        m, ref = jacobian_metrics(j), ER_REFERENCE[name]
-        @test keys(m) == keys(ref)
+        m, ref = jacobian_profile(j), ER_REFERENCE[name]
+        n = size(matrix(j), 1)
+        @test Set(keys(m)) == Set(k === :absumS ? :mean_sij : k for k in keys(ref))
         for k in keys(ref)
-            @test same(m[k], ref[k])
+            @test k === :absumS ? same(m.mean_sij * n^2, ref[k]) : same(m[k], ref[k])
         end
     end
     # the one change: an unstable equilibrium has unbounded amplification (the old scan stopped
     # at its time cap with a finite value)
-    m = jacobian_metrics(Jacobian([0.1 0.0; 0.0 -1.0], [1.0, 1.0]))
+    m = jacobian_profile(Jacobian([0.1 0.0; 0.0 -1.0], [1.0, 1.0]))
     @test m.Rinf < 0 && m.Amax == Inf && m.tmax == Inf && isnan(m.MRinf)
 end

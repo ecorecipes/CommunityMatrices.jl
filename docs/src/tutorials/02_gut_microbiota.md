@@ -32,7 +32,7 @@ interaction-matrix layer:
   feasible;
 - assembling the community the model predicts (`steady_state`,
   `subcommunity`, `invasion_rates`);
-- the stability metrics of that community (`jacobian_metrics`);
+- the stability metrics of that community (`jacobian_profile`);
 - the clindamycin pulse, simulated with `glv_trajectory` and compared
   with the mice;
 - what can be estimated from the time series alone (`smap_jacobians`,
@@ -232,7 +232,7 @@ applies, including the median metrics of Domínguez-García et al. (2019):
 ``` julia
 sub = subcommunity(a, ss.survivors)
 J = jacobian(sub)
-m = jacobian_metrics(J)
+m = jacobian_profile(J)
 (Rinf = m.Rinf, return_time = 1 / m.Rinf, R0 = m.R0, Amax = m.Amax, tmax = m.tmax,
  MRinf = m.MRinf, MR0 = m.MR0, MAmax = m.MAmax)
 ```
